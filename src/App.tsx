@@ -169,6 +169,11 @@ export default function App() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Shared by the upload panel and the preview placeholder so both open the
+  // native file picker.
+  const openFilePicker = useCallback(() => fileInputRef.current?.click(), []);
 
   const onFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -353,7 +358,7 @@ export default function App() {
 
     const safeCity = city.trim() || "City";
     const safeEvent = eventName.trim() || "Global Mixer";
-    const line2Text = `${safeEvent} "${safeCity}"`;
+    const line2Text = `${safeEvent} ${safeCity}`;
 
     // Measure the fixed-size right column first so the left lines know their room.
     ctx.font = mono("600", 34);
@@ -383,7 +388,7 @@ export default function App() {
     ctx.font = mono("600", size1, true);
     ctx.fillText("Space", leftX + w1, line1Y);
 
-    // Line 2: Event name + "City"
+    // Line 2: Event name + city
     ctx.font = mono("700", size2);
     ctx.fillText(line2Text, leftX, line2Y);
 
@@ -466,6 +471,7 @@ export default function App() {
             <Panel label="01 · UPLOAD SELFIE">
               <label className="block cursor-pointer border border-dashed border-border bg-secondary hover:bg-accent transition-colors p-6 text-center">
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   className="hidden"
@@ -740,13 +746,18 @@ export default function App() {
             <div className="border border-border bg-black p-3">
               <canvas
                 ref={canvasRef}
-                role="img"
-                aria-label={`VAS event badge preview: ${badge} ${eventName} "${city}", ${month} ${date}`}
+                role={imgEl ? "img" : "button"}
+                aria-label={
+                  imgEl
+                    ? `VAS event badge preview: ${badge} ${eventName} ${city}, ${month} ${date}`
+                    : "Upload a selfie"
+                }
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
-                className={`w-full h-auto block ${imgEl ? "cursor-grab active:cursor-grabbing" : ""}`}
+                onClick={imgEl ? undefined : openFilePicker}
+                className={`w-full h-auto block ${imgEl ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
                 style={{ imageRendering: "pixelated", touchAction: imgEl ? "none" : undefined }}
               />
             </div>

@@ -36,9 +36,8 @@ const EVENT_VOICE: Record<string, EventVoice> = {
   },
   Workshop: {
     tag: "#Workshop",
-    hook: "Bring a laptop, build something.",
-    blurb:
-      "Hands-on from the start. Bring a laptop and you'll leave having actually built something.",
+    hook: "Bring a laptop, leave with something built.",
+    blurb: "Hands-on from the first minute. Come with a laptop and you'll actually ship something.",
   },
 };
 
@@ -52,6 +51,9 @@ const eventVoice = (name: string): EventVoice =>
 interface BadgeVoice {
   verb: string; // sentence-start phrase, always followed by the event, e.g. "Speaking at"
   iam: string; // first-person sentence opener, e.g. "I'm speaking at" / "I'll be at"
+  // "the" when you act on a specific event (speaking at / attending / sponsoring
+  // THE Global Mixer); "a" when you're putting one on (hosting A Global Mixer).
+  definite: boolean;
   ctas: [string, string, string, string]; // casual calls-to-action, one per variant
   blurb: string; // badge-flavored longer line
   emoji: string;
@@ -61,7 +63,8 @@ const BADGE_VOICE: Record<BadgeType, BadgeVoice> = {
   "I'm hosting": {
     verb: "Hosting",
     iam: "I'm hosting",
-    ctas: ["Come hang out.", "Pull up.", "Would love to see you there.", "Bring a friend."],
+    definite: false,
+    ctas: ["Come hang out.", "Doors open, come by.", "Would love to see you there.", "Bring a friend."],
     blurb:
       "If you're into voice AI and want a room full of people who actually build it, this is the one.",
     emoji: "🎤",
@@ -69,6 +72,7 @@ const BADGE_VOICE: Record<BadgeType, BadgeVoice> = {
   "I'm speaking at": {
     verb: "Speaking at",
     iam: "I'm speaking at",
+    definite: true,
     ctas: ["Come say hi.", "Catch my talk.", "Find me there.", "Let's talk shop."],
     blurb: "Come for the talk, stay for the hallway conversations. Usually the best part.",
     emoji: "🎙️",
@@ -76,6 +80,7 @@ const BADGE_VOICE: Record<BadgeType, BadgeVoice> = {
   "I'm attending": {
     verb: "Heading to",
     iam: "I'll be at",
+    definite: true,
     ctas: [
       "Who else is going?",
       "Say hi if you're around.",
@@ -88,6 +93,7 @@ const BADGE_VOICE: Record<BadgeType, BadgeVoice> = {
   "We're sponsoring": {
     verb: "Sponsoring",
     iam: "We're sponsoring",
+    definite: true,
     ctas: [
       "Come find the team.",
       "Swing by and say hi.",
@@ -119,7 +125,18 @@ export function buildCaptions(input: CaptionInput): Caption[] {
   const event = input.eventName.trim() || "Global Mixer";
   const ev = eventVoice(event);
   const city = input.city.trim();
-  const eventLabel = `${event} "${city || "City"}"`;
+  // "the @voiceaispace Meetup in Colombo" / "a @voiceaispace Global Mixer in
+  // Colombo": every event is the org's, so it gets an inline @voiceaispace credit.
+  // The article tracks the badge — "the" for events you attend or speak at, "a"
+  // (a/an, vowel-aware) for ones you host. The city cleanly drops out when blank
+  // so we never post a dangling "in".
+  const article = v.definite ? "the" : /^[aeiou]/i.test(event) ? "an" : "a";
+  const eventLabel = city
+    ? `${article} ${HANDLE} ${event} in ${city}`
+    : `${article} ${HANDLE} ${event}`;
+  // The handle is already inline, so the trailing tags stay handle-free — one
+  // @voiceaispace per post. join() drops any empty fragments (e.g. a blank city).
+  const join = (...parts: string[]) => parts.filter(Boolean).join(" ");
 
   const month = input.month.trim();
   const date = input.date.trim();
@@ -135,26 +152,26 @@ export function buildCaptions(input: CaptionInput): Caption[] {
   const thisLong = dateLong ? ` this ${dateLong}` : "";
   const xDate = dateShort ? `, ${dateShort}` : "";
 
-  const liTags = `${HANDLE} #VoiceAISpace #VoiceAI ${ev.tag}`;
+  const liTags = join("#VoiceAISpace", "#VoiceAI", ev.tag);
   const linkedin = [
     `${v.iam} ${eventLabel}${onLong}. ${v.ctas[0]} ${liTags}`,
-    `${v.verb} ${eventLabel}${onLong}. ${ev.hook} ${v.ctas[1]} ${liTags}`,
+    `${v.iam} ${eventLabel}${onLong}. ${ev.hook} ${v.ctas[1]} ${liTags}`,
     `${v.iam} ${eventLabel}${onLong}.\n\n${ev.blurb} ${v.ctas[2]}\n\n${liTags}`,
     `${v.iam} ${eventLabel}${onLong}.\n\n${v.blurb} ${v.ctas[3]}\n\n${liTags}`,
   ];
 
   const x = [
-    `${v.verb} ${eventLabel}${xDate} ${v.emoji} ${v.ctas[0]} ${HANDLE} #VoiceAISpace`,
-    `${v.iam} ${eventLabel}${xDate}. ${ev.hook} ${v.ctas[1]} ${v.emoji} #VoiceAISpace ${ev.tag}`,
-    `${v.verb} ${eventLabel}${xDate}. ${v.ctas[2]} ${HANDLE} #VoiceAISpace`,
-    `${v.verb} ${eventLabel}${xDate} ${v.emoji} ${v.ctas[3]} ${HANDLE} ${ev.tag}`,
+    `${v.verb} ${eventLabel}${xDate} ${v.emoji} ${v.ctas[0]} #VoiceAISpace`,
+    `${v.iam} ${eventLabel}${xDate}. ${ev.hook} ${v.ctas[1]} ${v.emoji} ${join("#VoiceAISpace", ev.tag)}`,
+    `${v.verb} ${eventLabel}${xDate}. ${v.ctas[2]} #VoiceAISpace`,
+    `${v.verb} ${eventLabel}${xDate} ${v.emoji} ${v.ctas[3]} ${ev.tag}`,
   ];
 
   const instagram = [
-    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n.\n${HANDLE} ${igTags}`,
-    `${v.iam} ${eventLabel}${onLong} ${v.emoji}\n${ev.hook}\n${v.ctas[1]}\n.\n${HANDLE} ${igTags}`,
-    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n${v.ctas[2]}\n.\n${HANDLE} ${igTags}`,
-    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n${ev.blurb} ${v.ctas[3]}\n.\n${HANDLE} ${igTags}`,
+    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n.\n${igTags}`,
+    `${v.iam} ${eventLabel}${onLong} ${v.emoji}\n${ev.hook}\n${v.ctas[1]}\n.\n${igTags}`,
+    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n${v.ctas[2]}\n.\n${igTags}`,
+    `${v.verb} ${eventLabel}${thisLong} ${v.emoji}\n${ev.blurb} ${v.ctas[3]}\n.\n${igTags}`,
   ];
 
   return [
